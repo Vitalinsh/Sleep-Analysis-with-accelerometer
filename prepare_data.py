@@ -9,20 +9,20 @@ def change_labels(sample, n_sleep_stages=1):
     else if n_sleep_stages == 4, then labels (5 classes): 0 - REM, 1,2,3 - no-REM sleep stages 3-1, 4 - awake,
     else if n_sleep_stages == 2, then labels (3 classes): 0 - REM, 1 - no-REM sleep stage, 2 - awake.
     """
-    if sleep_stages == 1:
-        # for 2 class
+    if n_sleep_stages == 4:
+        # for 5 classes
         sample.gt[sample.gt==0] = 8
         sample.gt[sample.gt==5] = 0
         sample.gt[np.logical_or.reduce((sample.gt==6, sample.gt==7, sample.gt==8))] = 4
     
-    elif sleep_stages == 2:
-        # for 3 class
+    elif n_sleep_stages == 2:
+        # for 3 classes
         sample.gt[sample.gt==0] = 8
         sample.gt[sample.gt==5] = 0
         sample.gt[np.logical_or.reduce((sample.gt==1, sample.gt==2, sample.gt==3))] = 1
         sample.gt[np.logical_or.reduce((sample.gt==6, sample.gt==7, sample.gt==8))] = 2
-    elif sleep_stages == 4:
-        # for 5 class
+    elif n_sleep_stages == 1:
+        # for 2 classes
         sample.gt[sample.gt==0] = 8
         sample.gt[np.logical_or.reduce((sample.gt==1, sample.gt==2, sample.gt==3, sample.gt==5))] = 0
         sample.gt[np.logical_or.reduce((sample.gt==6, sample.gt==7, sample.gt==8))] = 1
@@ -79,7 +79,7 @@ def divide_by_windows(decoded_sample, window_len=60):
 
 #-------------------------------------------------------------------------
 
-def get_one_patient_data(data_path, patient, window_len=60, sleep_stages=False):
+def get_one_patient_data(data_path, patient, window_len=60, n_sleep_stages=1, divide_by_win=True):
     
     """
     Returns:
@@ -87,15 +87,19 @@ def get_one_patient_data(data_path, patient, window_len=60, sleep_stages=False):
     """
     
     sample = np.load("%s\p%s.npy"%(data_path, patient)).view(np.recarray)
-    sample = change_labels(sample, sleep_stages=sleep_stages)
+    sample = change_labels(sample, n_sleep_stages=n_sleep_stages)
     sample = decoder(sample)
-    X, y = divide_by_windows(sample, window_len)
+    if divide_by_win:
+        X, y = divide_by_windows(sample, window_len)
+    else:
+        X = sample[:, 0: 3]
+        y = sample[:, 3]
     
     return X, y
 
 #-------------------------------------------------------------------------
 
-def get_data_for_model(data_path, patient_list, window_len=60):
+def get_data_for_model(data_path, patient_list, window_len=60, divide_by_win=True):
     
     """
     Returns:
@@ -105,7 +109,7 @@ def get_data_for_model(data_path, patient_list, window_len=60):
     X_all_data = []
     y_all_data = []
     for patient in patient_list:
-        X, y = get_one_patient_data(data_path, patient, window_len)
+        X, y = get_one_patient_data(data_path, patient, window_len, divide_by_win=divide_by_win)
         X_all_data.append(X)
         y_all_data.append(y)
         
