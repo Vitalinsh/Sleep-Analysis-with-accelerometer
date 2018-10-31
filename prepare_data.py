@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import mode
+from sklearn.preprocessing import normalize
+from sklearn.preprocessing import StandardScaler
 
 def change_labels(sample, n_sleep_stages=1):
     """
@@ -54,7 +56,7 @@ def decoder(sample):
 
 #-------------------------------------------------------------------------
 
-def divide_by_windows(decoded_sample, window_len=60):
+def divide_by_windows(decoded_sample, window_len=60, scaler=False):
     """
     Parameters:
     window_len - length of each window in seconds, int
@@ -66,6 +68,11 @@ def divide_by_windows(decoded_sample, window_len=60):
     
     window_len *= 100
     n_windows = decoded_sample.shape[0] // window_len
+    
+    if scaler:
+        scaler = StandardScaler()
+        scaler.fit(decoded_sample[:, 0:3])
+        decoded_sample[:, 0:3] = scaler.transform(decoded_sample[:, 0:3])
     
     X = np.zeros((n_windows, window_len, 3))
     y = np.zeros(n_windows)
@@ -79,7 +86,7 @@ def divide_by_windows(decoded_sample, window_len=60):
 
 #-------------------------------------------------------------------------
 
-def get_one_patient_data(data_path, patient, window_len=60, n_sleep_stages=1, divide_by_win=True):
+def get_one_patient_data(data_path, patient, window_len=60, n_sleep_stages=1, divide_by_win=True, scaler=False):
     
     """
     Returns:
@@ -90,8 +97,16 @@ def get_one_patient_data(data_path, patient, window_len=60, n_sleep_stages=1, di
     sample = change_labels(sample, n_sleep_stages=n_sleep_stages)
     sample = decoder(sample)
     if divide_by_win:
-        X, y = divide_by_windows(sample, window_len)
-    else:
+        X, y = divide_by_windows(sample, window_len, scaler=scaler)
+        
+    elif scaler:
+        scaler = StandardScaler()
+        scaler.fit(sample[:, 0:3])
+        sample[:, 0:3] = scaler.transform(sample[:, 0:3])
+      
+        X = sample[:, 0: 3]
+        y = sample[:, 3]
+    else:    
         X = sample[:, 0: 3]
         y = sample[:, 3]
     
@@ -99,7 +114,7 @@ def get_one_patient_data(data_path, patient, window_len=60, n_sleep_stages=1, di
 
 #-------------------------------------------------------------------------
 
-def get_data_for_model(data_path, patient_list, window_len=60, divide_by_win=True):
+def get_data_for_model(data_path, patient_list, window_len=60, divide_by_win=True, scaler=False):
     
     """
     Returns:
@@ -109,7 +124,7 @@ def get_data_for_model(data_path, patient_list, window_len=60, divide_by_win=Tru
     X_all_data = []
     y_all_data = []
     for patient in patient_list:
-        X, y = get_one_patient_data(data_path, patient, window_len, divide_by_win=divide_by_win)
+        X, y = get_one_patient_data(data_path, patient, window_len, divide_by_win=divide_by_win, scaler=scaler)
         X_all_data.append(X)
         y_all_data.append(y)
         
@@ -120,7 +135,8 @@ def get_data_for_model(data_path, patient_list, window_len=60, divide_by_win=Tru
 
 #----------------------------------------------------------------------------
 
-def save_statistic_features(patient_list, sorce_path="ICHI14_dataset\data", save_path="features.csv", window_len=60, n_sleep_stages=1):
+def save_statistic_features(patient_list, sorce_path="ICHI14_dataset\data", save_path="features.csv", 
+                            window_len=60, n_sleep_stages=1, scaler=False):
     
     """
     Save .csv file with extracted statistic features for each windows and axis.
@@ -138,7 +154,7 @@ def save_statistic_features(patient_list, sorce_path="ICHI14_dataset\data", save
     for patient in patient_list:
         
         X, y = get_one_patient_data(data_path=sorce_path, patient=patient, 
-                                                 window_len=window_len, n_sleep_stages=n_sleep_stages)
+                                    window_len=window_len, n_sleep_stages=n_sleep_stages, scaler=scaler)
         
         patient_id = np.array([patient] * y.shape[0]).reshape(y.shape[0], 1)
         std = np.std(X, axis=1)
